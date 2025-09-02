@@ -7,75 +7,29 @@
   <meta name="theme-color" content="#111111">
   <style>
     * { box-sizing: border-box; }
-    html, body {
-      margin: 0;
-      height: 100%;
-      background: #0e0e0f;
-      color: #eee;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
-    }
-    #hud {
-      position: fixed;
-      top: 0; left: 0; right: 0;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 12px;
-      background: linear-gradient(180deg, rgba(0,0,0,0.7), rgba(0,0,0,0));
-      z-index: 2;
-      pointer-events: none;
-    }
-    #stats { display: flex; gap: 12px; font-weight: 600; }
-    #title { font-weight: 700; letter-spacing: 0.3px; }
-    #game {
-      display: block;
-      margin: 0 auto;
-      max-width: 100vw;
-      max-height: 100vh;
-      background: #2a2a2e;
-      border-left: 6px solid #222;
-      border-right: 6px solid #222;
-      touch-action: manipulation; /* better mobile taps */
-    }
-    #controls {
-      position: fixed;
-      bottom: 10px; left: 0; right: 0;
-      display: flex; justify-content: center; gap: 16px;
-      z-index: 2;
-    }
-    #controls button {
-      width: 96px; height: 96px; border-radius: 50%;
-      border: 0; font-size: 28px; font-weight: 700;
-      background: #1d1e22; color: #fafafa;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.45);
-    }
-    #controls button:active { transform: scale(0.98); }
-    .hidden { display: none !important; }
-    #overlay {
-      position: fixed; inset: 0;
-      display: grid; place-items: center;
-      background: rgba(0,0,0,0.7);
-      z-index: 3;
-    }
-    .panel {
-      background: #141416;
-      border: 1px solid #2c2c32;
-      border-radius: 12px;
-      padding: 20px;
-      width: min(92vw, 520px);
-      text-align: center;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    }
-    .panel button {
-      display: inline-block;
-      padding: 12px 18px;
-      font-size: 16px;
-      border-radius: 10px;
-      border: 0;
-      background: #2a71ff;
-      color: #fff;
-      font-weight: 700;
-    }
+    html, body { margin:0; height:100%; background:#0e0e0f; color:#eee; font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; }
+    #hud { position:fixed; top:0; left:0; right:0; display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:linear-gradient(180deg,rgba(0,0,0,0.7),rgba(0,0,0,0)); z-index:2; pointer-events:none; }
+    #stats { display:flex; gap:12px; font-weight:600; }
+    #title { font-weight:700; letter-spacing:.3px; }
+    #game { display:block; margin:0 auto; max-width:100vw; max-height:100vh; background:#2a2a2e; border-left:6px solid #222; border-right:6px solid #222; touch-action:manipulation; }
+    #controls { position:fixed; bottom:10px; left:0; right:0; display:flex; justify-content:center; gap:16px; z-index:2; }
+    #controls button { width:96px; height:96px; border-radius:50%; border:0; font-size:28px; font-weight:700; background:#1d1e22; color:#fafafa; box-shadow:0 4px 14px rgba(0,0,0,.45); }
+    #controls button:active { transform:scale(.98); }
+    .hidden { display:none !important; }
+    #overlay { position:fixed; inset:0; display:grid; place-items:center; background:rgba(0,0,0,0.7); z-index:3; }
+    .panel { background:#141416; border:1px solid #2c2c32; border-radius:12px; padding:20px; width:min(92vw,560px); text-align:center; box-shadow:0 10px 40px rgba(0,0,0,.5); }
+    .panel h1 { margin-top:0; }
+    .panel button, .panel input { padding:12px 16px; border-radius:10px; border:0; font-size:16px; }
+    .primary { background:#2a71ff; color:#fff; font-weight:700; }
+    .ghost { background:#1d1e22; color:#fff; }
+    .row { display:flex; gap:10px; justify-content:center; flex-wrap:wrap; }
+    .stack { display:flex; flex-direction:column; gap:10px; align-items:center; }
+    .list { width:100%; text-align:left; max-height:260px; overflow:auto; border:1px solid #2c2c32; border-radius:10px; padding:8px; }
+    .list table { width:100%; border-collapse:collapse; }
+    .list th, .list td { padding:8px; border-bottom:1px solid #222; font-size:14px; }
+    .list tr:last-child td { border-bottom:0; }
+    .muted { color:#aaa; font-size:13px; }
+    .badge { padding:2px 8px; border-radius:6px; background:#222; }
   </style>
 </head>
 <body>
@@ -85,6 +39,8 @@
       <span id="lives">Lives: 3</span>
       <span id="time">Time: 0s</span>
       <span id="lanes">Lanes: 3</span>
+      <span id="score">Score: 0</span>
+      <span id="best" class="badge">Best: 0</span>
     </div>
   </div>
 
@@ -95,30 +51,54 @@
     <button id="rightBtn" aria-label="Move Right">▶︎</button>
   </div>
 
-  <!-- Visible on load; hidden on Start -->
+  <!-- Overlay container (we will force-hide on init in JS, then show explicitly when needed) -->
   <div id="overlay">
-    <div class="panel">
-      <h1>Jerry Parsnip's Gravel Graveyard</h1>
-      <p>Tap left/right (or use ◀︎ ▶︎ keys) to dodge the gravel. Three hits and Jerry goes OTB… then 🪦.</p>
-      <button id="startBtn">Start Ride</button>
-    </div>
+    <div class="panel" id="panel"></div>
   </div>
 
   <script>
   (() => {
-    const canvas = document.getElementById('game');
-    const ctx = canvas.getContext('2d');
+    const canvas  = document.getElementById('game');
+    const ctx     = canvas.getContext('2d');
 
     const hudLives = document.getElementById('lives');
-    const hudTime = document.getElementById('time');
+    const hudTime  = document.getElementById('time');
     const hudLanes = document.getElementById('lanes');
+    const hudScore = document.getElementById('score');
+    const hudBest  = document.getElementById('best');
 
-    const leftBtn = document.getElementById('leftBtn');
+    const leftBtn  = document.getElementById('leftBtn');
     const rightBtn = document.getElementById('rightBtn');
-    const overlay = document.getElementById('overlay');
-    const startBtn = document.getElementById('startBtn');
+    const overlay  = document.getElementById('overlay');
+    const panel    = document.getElementById('panel');
 
-    // --- Game state ---
+    // ---- ABSOLUTE SHOW/HIDE HELPERS (defeat stubborn caches) ----
+    function hideOverlayHard() {
+      overlay.classList.add('hidden');
+      overlay.style.display = 'none';
+    }
+    function showOverlay() {
+      overlay.classList.remove('hidden');
+      overlay.style.display = '';
+    }
+
+    // Force-hide immediately on load in case an old stylesheet or SW is cached
+    hideOverlayHard();
+
+    // ---- Leaderboard storage ----
+    const LB_KEY   = 'jpgg_leaderboard';
+    const NAME_KEY = 'jpgg_player_name';
+    function loadLB() {
+      try { return JSON.parse(localStorage.getItem(LB_KEY)) || []; } catch { return []; }
+    }
+    function saveLB(lb) { localStorage.setItem(LB_KEY, JSON.stringify(lb.slice(0,10))); }
+    function bestScore() {
+      const lb = loadLB();
+      return lb.length ? lb[0].score : 0;
+    }
+    function escapeHtml(s){ return (s||'').replace(/[&<>"']/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c])); }
+
+    // ---- Game state ----
     const state = {
       running: false,
       lanes: 3,
@@ -134,10 +114,11 @@
       obstacles: [],
       spawnTimer: 0,
       spawnInterval: 650,
-      gravestoneT: 0
+      gravestoneT: 0,
+      score: 0
     };
 
-    // --- Sizing ---
+    // ---- Sizing ----
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = Math.min(window.innerWidth, 600);
@@ -155,44 +136,85 @@
       state.laneWidth = roadWidth / state.lanes;
     }
 
-    // --- Controls ---
-    function moveLeft() {
-      if (!state.running || state.gameOver) return;
-      state.playerLane = Math.max(0, state.playerLane - 1);
+    // ---- Panels ----
+    function showStartPanel() {
+      showOverlay();
+      panel.innerHTML = `
+        <h1>Jerry Parsnip's Gravel Graveyard</h1>
+        <p>Tap left/right (or use ◀︎ ▶︎ keys) to dodge gravel. Three hits and Jerry goes OTB… then 🪦.</p>
+        <div class="row">
+          <button class="primary" id="startBtn">Start Ride</button>
+          <button class="ghost" id="lbBtn">Leaderboard</button>
+        </div>
+        <p class="muted">Best: ${bestScore()}</p>
+      `;
+      document.getElementById('startBtn').onclick = startGame;
+      document.getElementById('lbBtn').onclick = showLeaderboardPanel;
     }
-    function moveRight() {
-      if (!state.running || state.gameOver) return;
-      state.playerLane = Math.min(state.lanes - 1, state.playerLane + 1);
+
+    function showLeaderboardPanel() {
+      showOverlay();
+      const lb = loadLB();
+      const rows = lb.map((e,i)=>`<tr><td>${i+1}</td><td>${escapeHtml(e.name)}</td><td>${e.score}</td><td class="muted">${new Date(e.ts).toLocaleDateString()}</td></tr>`).join('')
+        || `<tr><td colspan="4" class="muted">No runs yet — be the first!</td></tr>`;
+      panel.innerHTML = `
+        <h1>Leaderboard</h1>
+        <div class="list">
+          <table>
+            <thead><tr><th>#</th><th>Name</th><th>Score</th><th>Date</th></tr></thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+        <div class="row" style="margin-top:10px;">
+          <button class="primary" id="backStart">Back</button>
+          <button class="ghost" id="clearLB">Clear Leaderboard</button>
+        </div>
+        <p class="muted">Top 10 stored on this device.</p>
+      `;
+      document.getElementById('backStart').onclick = showStartPanel;
+      document.getElementById('clearLB').onclick = () => {
+        if (confirm('Clear leaderboard on this device?')) { saveLB([]); showLeaderboardPanel(); }
+      };
     }
 
-    leftBtn.addEventListener('click', moveLeft);
-    rightBtn.addEventListener('click', moveRight);
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
-      if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
-      if ((e.key === ' ' || e.key === 'Enter') && !state.running) { startGame(); }
-    });
-    // Tap anywhere on canvas to start if overlay is up
-    canvas.addEventListener('touchstart', (e) => {
-      if (!state.running) {
-        startGame();
-        return;
-      }
-      const x = e.touches[0].clientX;
-      const mid = window.innerWidth / 2;
-      if (x < mid) moveLeft(); else moveRight();
-    });
+    function showGameOverPanel() {
+      showOverlay();
+      const currentBest = bestScore();
+      const isPB = state.score > currentBest;
+      const lastName = localStorage.getItem(NAME_KEY) || '';
+      panel.innerHTML = `
+        <h1>Over the Bars!</h1>
+        <p>You survived <b>${Math.floor(state.elapsed)}s</b> · Max lanes <b>${state.lanes}</b></p>
+        <p style="font-size:22px; margin:.2em 0;">Score: <b>${state.score}</b> ${isPB ? '<span class="badge">NEW BEST!</span>' : ''}</p>
+        <div class="stack" style="margin-top:10px;">
+          <input id="nameInput" type="text" placeholder="Your name" value="${escapeHtml(lastName)}" />
+          <div class="row">
+            <button class="primary" id="saveScoreBtn">Save Score</button>
+            <button class="ghost" id="skipBtn">Skip</button>
+          </div>
+          <button class="ghost" id="viewLB">View Leaderboard</button>
+          <button class="primary" id="restartBtn">Restart Ride</button>
+        </div>
+      `;
+      document.getElementById('saveScoreBtn').onclick = () => {
+        const name = (document.getElementById('nameInput').value || 'Rider').trim().slice(0,32);
+        localStorage.setItem(NAME_KEY, name);
+        const lb = loadLB();
+        lb.push({ name, score: state.score, ts: Date.now() });
+        lb.sort((a,b)=>b.score - a.score);
+        saveLB(lb);
+        showLeaderboardPanel();
+      };
+      document.getElementById('skipBtn').onclick = showStartPanel;
+      document.getElementById('viewLB').onclick = showLeaderboardPanel;
+      document.getElementById('restartBtn').onclick = startGame;
+    }
 
-    startBtn.addEventListener('click', startGame);
-    window.addEventListener('resize', resize);
-    resize();
-
-    // --- Start / Reset ---
+    // ---- Start / Reset ----
     function startGame() {
       reset();
-      overlay.classList.add('hidden'); // ✅ hide start panel immediately
+      hideOverlayHard(); // <- belt-and-braces hide
     }
-
     function reset() {
       state.running = true;
       state.lanes = 3;
@@ -208,41 +230,33 @@
       state.spawnTimer = 0;
       state.spawnInterval = 650;
       state.gravestoneT = 0;
+      state.score = 0;
       computeLaneWidth();
-      // ensure it is hidden even if called directly
-      overlay.classList.add('hidden');
     }
 
-    // --- Spawning (≤ two-thirds lanes blocked) ---
+    // ---- Spawning (≤ two-thirds lanes blocked) ----
     function spawnRow() {
       const L = state.lanes;
       const maxGravel = Math.max(1, Math.floor(2 * L / 3));
       const gravelCount = Math.floor(Math.random() * maxGravel) + 1; // 1..maxGravel
       const lanes = new Set();
-      while (lanes.size < gravelCount) {
-        lanes.add(Math.floor(Math.random() * L));
-      }
+      while (lanes.size < gravelCount) lanes.add(Math.floor(Math.random() * L));
       if (lanes.size >= L) {
-        const arr = Array.from(lanes);
-        lanes.delete(arr[Math.floor(Math.random() * arr.length)]);
+        const arr = Array.from(lanes); lanes.delete(arr[Math.floor(Math.random() * arr.length)]);
       }
-      state.obstacles.push({ y: -40, lanes });
+      state.obstacles.push({ y: -40, lanes, checked:false });
     }
 
-    // --- Update ---
+    // ---- Update ----
     function update(dt) {
       if (!state.running) return;
 
       state.elapsed = (performance.now() - state.t0) / 1000;
 
       // Lanes: 3 → 5 at 60s → 6 at 120s
-      if (state.elapsed >= 120) {
-        if (state.lanes !== 6) { state.lanes = 6; computeLaneWidth(); }
-      } else if (state.elapsed >= 60) {
-        if (state.lanes !== 5) { state.lanes = 5; computeLaneWidth(); }
-      } else {
-        if (state.lanes !== 3) { state.lanes = 3; computeLaneWidth(); }
-      }
+      if (state.elapsed >= 120) { if (state.lanes !== 6) { state.lanes = 6; computeLaneWidth(); } }
+      else if (state.elapsed >= 60) { if (state.lanes !== 5) { state.lanes = 5; computeLaneWidth(); } }
+      else { if (state.lanes !== 3) { state.lanes = 3; computeLaneWidth(); } }
 
       // Speed ramps up gently
       state.speed = 240 + state.elapsed * 5;
@@ -250,44 +264,47 @@
       // Spawn timing tightens a bit over time
       state.spawnTimer += dt * 1000;
       const dynamicInterval = Math.max(320, state.spawnInterval - state.elapsed * 3);
-      if (state.spawnTimer >= dynamicInterval) {
-        state.spawnTimer = 0;
-        spawnRow();
-      }
+      if (state.spawnTimer >= dynamicInterval) { state.spawnTimer = 0; spawnRow(); }
 
       // Move rows
-      for (const row of state.obstacles) { row.y += state.speed * dt; }
-      state.obstacles = state.obstacles.filter(r => r.y < canvas.height + 80);
+      for (const row of state.obstacles) row.y += state.speed * dt;
 
-      // Collision check at rider Y
+      // Collision & scoring near rider Y
       const playerY = canvas.height - 120;
-      const hitRows = state.obstacles.filter(r => r.y > playerY - 20 && r.y < playerY + 20);
-      for (const r of hitRows) {
-        if (r.lanes.has(state.playerLane) && !r.hit) {
-          r.hit = true;
-          state.wobbleT = 0.4;
-          state.wobbleAmp = 10;
-          state.lives -= 1;
-          if (state.lives <= 0) {
-            state.gameOver = true;
-            state.gravestoneT = 1.5; // short OTB animation before grave
+      for (const r of state.obstacles) {
+        if (!r.checked && r.y > playerY - 20) {
+          r.checked = true;
+          if (r.lanes.has(state.playerLane)) {
+            // HIT
+            r.hit = true;
+            state.wobbleT = 0.4; state.wobbleAmp = 10;
+            state.lives -= 1;
+            if (state.lives <= 0) { state.gameOver = true; state.gravestoneT = 1.5; }
+          } else {
+            // SAFE PASS → score
+            state.score += 10;
           }
         }
       }
 
+      // Clean up
+      state.obstacles = state.obstacles.filter(r => r.y < canvas.height + 80);
+
+      // Survival drip score (~4/sec)
+      state.score += Math.floor((dt * 1000) / 250);
+
       // wobble decay
-      if (state.wobbleT > 0) {
-        state.wobbleT -= dt;
-        if (state.wobbleT <= 0) state.wobbleAmp = 0;
-      }
+      if (state.wobbleT > 0) { state.wobbleT -= dt; if (state.wobbleT <= 0) state.wobbleAmp = 0; }
 
       // HUD
       hudLives.textContent = 'Lives: ' + state.lives;
-      hudTime.textContent = 'Time: ' + Math.floor(state.elapsed) + 's';
+      hudTime.textContent  = 'Time: ' + Math.floor(state.elapsed) + 's';
       hudLanes.textContent = 'Lanes: ' + state.lanes;
+      hudScore.textContent = 'Score: ' + state.score;
+      hudBest.textContent  = 'Best: ' + bestScore();
     }
 
-    // --- Drawing ---
+    // ---- Drawing ----
     function drawRoad() {
       const w = canvas.width / (window.devicePixelRatio || 1);
       const h = canvas.height / (window.devicePixelRatio || 1);
@@ -298,14 +315,11 @@
 
       // asphalt
       const g = ctx.createLinearGradient(0,0,0,h);
-      g.addColorStop(0, '#2b2b30');
-      g.addColorStop(1, '#1f1f24');
-      ctx.fillStyle = g;
-      ctx.fillRect(roadLeft, 0, state.laneWidth*state.lanes, h);
+      g.addColorStop(0, '#2b2b30'); g.addColorStop(1, '#1f1f24');
+      ctx.fillStyle = g; ctx.fillRect(roadLeft, 0, state.laneWidth*state.lanes, h);
 
       // lane markers
-      ctx.strokeStyle = '#3b3b42';
-      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#3b3b42'; ctx.lineWidth = 2;
       for (let i = 1; i < state.lanes; i++) {
         const x = roadLeft + i*state.laneWidth;
         ctx.setLineDash([18, 14]);
@@ -314,9 +328,7 @@
       }
 
       // shoulder lines
-      ctx.strokeStyle = '#cfcfd6';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([24, 16]);
+      ctx.strokeStyle = '#cfcfd6'; ctx.lineWidth = 4; ctx.setLineDash([24, 16]);
       ctx.beginPath(); ctx.moveTo(roadLeft, 0); ctx.lineTo(roadLeft, h); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(roadRight, 0); ctx.lineTo(roadRight, h); ctx.stroke();
       ctx.setLineDash([]);
@@ -329,12 +341,10 @@
             const y = row.y;
             const wPatch = state.laneWidth * 0.8;
             const hPatch = 26;
-            ctx.save();
-            ctx.translate(cx, y);
+            ctx.save(); ctx.translate(cx, y);
             ctx.fillStyle = '#7a6d57';
             roundedRect(-wPatch/2, -hPatch/2, wPatch, hPatch, 8);
             ctx.fill();
-            // speckles
             for (let i=0;i<18;i++){
               ctx.fillStyle = i%2? '#6a5f4d' : '#8a7b63';
               const rx = (Math.random()-0.5)*wPatch*0.8;
@@ -348,11 +358,9 @@
     }
 
     function laneCenter(l) {
-      const roadMargin = 40;
       const roadLeft = (canvas.width / (window.devicePixelRatio || 1)) / 2 - (state.laneWidth * state.lanes)/2;
       return roadLeft + l * state.laneWidth + state.laneWidth/2;
     }
-
     function roundedRect(x, y, w, h, r) {
       ctx.beginPath();
       ctx.moveTo(x+r, y);
@@ -364,17 +372,15 @@
     }
 
     function drawPlayer() {
-      const y = canvas.height - 120;
+      const y  = canvas.height - 120;
       const cx = laneCenter(state.playerLane);
 
       ctx.save();
-      // wobble when hit
       const wobbleX = state.wobbleAmp * Math.sin((performance.now()/100) * 2 * Math.PI);
       ctx.translate(cx + wobbleX, y);
 
       if (state.gameOver) {
         if (state.gravestoneT > 0) {
-          // quick OTB spin
           const t = state.gravestoneT;
           const a = (1.5 - t) * Math.PI;
           ctx.rotate(a);
@@ -385,32 +391,23 @@
       } else {
         drawBike(0, 0, false);
       }
-
       ctx.restore();
     }
 
     function drawBike(x, y, crashed) {
       ctx.save();
       ctx.translate(x, y);
-      // frame
       ctx.strokeStyle = crashed ? '#aa3333' : '#4cc9f0';
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.moveTo(-20, 10); ctx.lineTo(0, -18); ctx.lineTo(22, 8); ctx.lineTo(-10, 8); ctx.closePath();
       ctx.stroke();
-      // wheels
       ctx.fillStyle = '#101014'; ctx.beginPath(); ctx.arc(-28, 18, 12, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(28, 18, 12, 0, Math.PI*2); ctx.fill();
-      // rider
-      ctx.fillStyle = '#f1d1b5'; // head
-      ctx.beginPath(); ctx.arc(0, -30, 8, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ff69b4'; // jersey
-      ctx.fillRect(-10, -26, 20, 18);
-      ctx.fillStyle = '#111'; // shorts
-      ctx.fillRect(-8, -8, 16, 14);
-      // bars
-      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.moveTo(14, -6); ctx.lineTo(26, -6); ctx.stroke();
+      ctx.fillStyle = '#f1d1b5'; ctx.beginPath(); ctx.arc(0, -30, 8, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#ff69b4'; ctx.fillRect(-10, -26, 20, 18);
+      ctx.fillStyle = '#111'; ctx.fillRect(-8, -8, 16, 14);
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(14, -6); ctx.lineTo(26, -6); ctx.stroke();
       ctx.restore();
     }
 
@@ -432,31 +429,35 @@
     function drawUI() {
       const w = canvas.width / (window.devicePixelRatio || 1);
       const h = canvas.height / (window.devicePixelRatio || 1);
-      // top progress bar (to 180s)
       const pct = Math.min(1, state.elapsed / 180);
       ctx.fillStyle = '#2a71ff';
       ctx.fillRect(0, 0, w*pct, 4);
 
       if (state.gameOver && state.gravestoneT <= 0) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.5)';
-        ctx.fillRect(0, 0, w, h);
-        ctx.fillStyle = '#fff';
-        ctx.textAlign = 'center';
-        ctx.font = 'bold 28px system-ui, sans-serif';
-        ctx.fillText('Over the Bars!', w/2, h/2 - 30);
-        ctx.font = '16px system-ui, sans-serif';
-        ctx.fillText(`Survived ${Math.floor(state.elapsed)}s  •  Max lanes ${state.lanes}`, w/2, h/2 + 4);
-        ctx.fillText('Tap Start to try again', w/2, h/2 + 32);
-        ctx.restore();
-
-        // show HTML overlay to restart on tap of Start
-        overlay.classList.remove('hidden');
-        startBtn.textContent = 'Restart Ride';
+        // as soon as the OTB animation ends, show panel
+        showGameOverPanel();
       }
     }
 
-    // --- Main loop ---
+    // ---- Controls ----
+    function moveLeft()  { if (state.running && !state.gameOver) state.playerLane = Math.max(0, state.playerLane - 1); }
+    function moveRight() { if (state.running && !state.gameOver) state.playerLane = Math.min(state.lanes - 1, state.playerLane + 1); }
+
+    leftBtn.addEventListener('click', moveLeft);
+    rightBtn.addEventListener('click', moveRight);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
+      if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
+      if ((e.key === ' ' || e.key === 'Enter') && !state.running) { startGame(); }
+    });
+    canvas.addEventListener('touchstart', (e) => {
+      if (!state.running) { startGame(); return; }
+      const x = e.touches[0].clientX;
+      const mid = window.innerWidth / 2;
+      if (x < mid) moveLeft(); else moveRight();
+    });
+
+    // ---- Main loop ----
     let last = performance.now();
     function frame(now) {
       const dt = Math.min(0.033, (now - last) / 1000);
@@ -475,7 +476,13 @@
 
       requestAnimationFrame(frame);
     }
+
+    // ---- Boot ----
+    window.addEventListener('resize', resize);
+    resize();
     requestAnimationFrame(frame);
+    // Show start after we've guaranteed overlay can be shown
+    showStartPanel();
   })();
   </script>
 </body>
