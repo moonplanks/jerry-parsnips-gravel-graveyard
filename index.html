@@ -35,6 +35,7 @@
       background: #2a2a2e;
       border-left: 6px solid #222;
       border-right: 6px solid #222;
+      touch-action: manipulation; /* better mobile taps */
     }
     #controls {
       position: fixed;
@@ -49,7 +50,7 @@
       box-shadow: 0 4px 14px rgba(0,0,0,0.45);
     }
     #controls button:active { transform: scale(0.98); }
-    .hidden { display: none; }
+    .hidden { display: none !important; }
     #overlay {
       position: fixed; inset: 0;
       display: grid; place-items: center;
@@ -94,7 +95,8 @@
     <button id="rightBtn" aria-label="Move Right">▶︎</button>
   </div>
 
-  <div id="overlay" class="">
+  <!-- Visible on load; hidden on Start -->
+  <div id="overlay">
     <div class="panel">
       <h1>Jerry Parsnip's Gravel Graveyard</h1>
       <p>Tap left/right (or use ◀︎ ▶︎ keys) to dodge the gravel. Three hits and Jerry goes OTB… then 🪦.</p>
@@ -116,6 +118,7 @@
     const overlay = document.getElementById('overlay');
     const startBtn = document.getElementById('startBtn');
 
+    // --- Game state ---
     const state = {
       running: false,
       lanes: 3,
@@ -134,6 +137,7 @@
       gravestoneT: 0
     };
 
+    // --- Sizing ---
     function resize() {
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const w = Math.min(window.innerWidth, 600);
@@ -145,11 +149,48 @@
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       computeLaneWidth();
     }
-
     function computeLaneWidth() {
       const roadMargin = 40;
       const roadWidth = canvas.width / (window.devicePixelRatio || 1) - roadMargin * 2;
       state.laneWidth = roadWidth / state.lanes;
+    }
+
+    // --- Controls ---
+    function moveLeft() {
+      if (!state.running || state.gameOver) return;
+      state.playerLane = Math.max(0, state.playerLane - 1);
+    }
+    function moveRight() {
+      if (!state.running || state.gameOver) return;
+      state.playerLane = Math.min(state.lanes - 1, state.playerLane + 1);
+    }
+
+    leftBtn.addEventListener('click', moveLeft);
+    rightBtn.addEventListener('click', moveRight);
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
+      if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
+      if ((e.key === ' ' || e.key === 'Enter') && !state.running) { startGame(); }
+    });
+    // Tap anywhere on canvas to start if overlay is up
+    canvas.addEventListener('touchstart', (e) => {
+      if (!state.running) {
+        startGame();
+        return;
+      }
+      const x = e.touches[0].clientX;
+      const mid = window.innerWidth / 2;
+      if (x < mid) moveLeft(); else moveRight();
+    });
+
+    startBtn.addEventListener('click', startGame);
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- Start / Reset ---
+    function startGame() {
+      reset();
+      overlay.classList.add('hidden'); // ✅ hide start panel immediately
     }
 
     function reset() {
@@ -168,45 +209,15 @@
       state.spawnInterval = 650;
       state.gravestoneT = 0;
       computeLaneWidth();
+      // ensure it is hidden even if called directly
       overlay.classList.add('hidden');
     }
 
-    function laneCenter(l) {
-      const roadMargin = 40;
-      const roadLeft = (canvas.width / (window.devicePixelRatio || 1)) / 2 - (state.laneWidth * state.lanes)/2;
-      return roadLeft + l * state.laneWidth + state.laneWidth/2;
-    }
-
-    function moveLeft() {
-      if (!state.running || state.gameOver) return;
-      state.playerLane = Math.max(0, state.playerLane - 1);
-    }
-    function moveRight() {
-      if (!state.running || state.gameOver) return;
-      state.playerLane = Math.min(state.lanes - 1, state.playerLane + 1);
-    }
-
-    leftBtn.addEventListener('click', moveLeft);
-    rightBtn.addEventListener('click', moveRight);
-    window.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft();
-      if (e.key === 'ArrowRight' || e.key === 'd') moveRight();
-      if ((e.key === ' ' || e.key === 'Enter') && !state.running) { reset(); }
-    });
-    canvas.addEventListener('touchstart', (e) => {
-      const x = e.touches[0].clientX;
-      const mid = window.innerWidth / 2;
-      if (x < mid) moveLeft(); else moveRight();
-    });
-
-    startBtn.addEventListener('click', reset);
-    window.addEventListener('resize', resize);
-    resize();
-
+    // --- Spawning (≤ two-thirds lanes blocked) ---
     function spawnRow() {
       const L = state.lanes;
       const maxGravel = Math.max(1, Math.floor(2 * L / 3));
-      const gravelCount = Math.floor(Math.random() * maxGravel) + 1;
+      const gravelCount = Math.floor(Math.random() * maxGravel) + 1; // 1..maxGravel
       const lanes = new Set();
       while (lanes.size < gravelCount) {
         lanes.add(Math.floor(Math.random() * L));
@@ -218,9 +229,13 @@
       state.obstacles.push({ y: -40, lanes });
     }
 
+    // --- Update ---
     function update(dt) {
       if (!state.running) return;
+
       state.elapsed = (performance.now() - state.t0) / 1000;
+
+      // Lanes: 3 → 5 at 60s → 6 at 120s
       if (state.elapsed >= 120) {
         if (state.lanes !== 6) { state.lanes = 6; computeLaneWidth(); }
       } else if (state.elapsed >= 60) {
@@ -228,15 +243,23 @@
       } else {
         if (state.lanes !== 3) { state.lanes = 3; computeLaneWidth(); }
       }
+
+      // Speed ramps up gently
       state.speed = 240 + state.elapsed * 5;
+
+      // Spawn timing tightens a bit over time
       state.spawnTimer += dt * 1000;
       const dynamicInterval = Math.max(320, state.spawnInterval - state.elapsed * 3);
       if (state.spawnTimer >= dynamicInterval) {
         state.spawnTimer = 0;
         spawnRow();
       }
+
+      // Move rows
       for (const row of state.obstacles) { row.y += state.speed * dt; }
       state.obstacles = state.obstacles.filter(r => r.y < canvas.height + 80);
+
+      // Collision check at rider Y
       const playerY = canvas.height - 120;
       const hitRows = state.obstacles.filter(r => r.y > playerY - 20 && r.y < playerY + 20);
       for (const r of hitRows) {
@@ -247,40 +270,58 @@
           state.lives -= 1;
           if (state.lives <= 0) {
             state.gameOver = true;
-            state.gravestoneT = 1.5;
+            state.gravestoneT = 1.5; // short OTB animation before grave
           }
         }
       }
+
+      // wobble decay
       if (state.wobbleT > 0) {
         state.wobbleT -= dt;
         if (state.wobbleT <= 0) state.wobbleAmp = 0;
       }
+
+      // HUD
       hudLives.textContent = 'Lives: ' + state.lives;
       hudTime.textContent = 'Time: ' + Math.floor(state.elapsed) + 's';
       hudLanes.textContent = 'Lanes: ' + state.lanes;
     }
 
+    // --- Drawing ---
     function drawRoad() {
       const w = canvas.width / (window.devicePixelRatio || 1);
       const h = canvas.height / (window.devicePixelRatio || 1);
+
       const roadMargin = 40;
       const roadLeft = w/2 - (state.laneWidth*state.lanes)/2;
       const roadRight = roadLeft + state.laneWidth*state.lanes;
+
+      // asphalt
       const g = ctx.createLinearGradient(0,0,0,h);
-      g.addColorStop(0, '#2b2b30'); g.addColorStop(1, '#1f1f24');
-      ctx.fillStyle = g; ctx.fillRect(roadLeft, 0, state.laneWidth*state.lanes, h);
-      ctx.strokeStyle = '#3b3b42'; ctx.lineWidth = 2;
+      g.addColorStop(0, '#2b2b30');
+      g.addColorStop(1, '#1f1f24');
+      ctx.fillStyle = g;
+      ctx.fillRect(roadLeft, 0, state.laneWidth*state.lanes, h);
+
+      // lane markers
+      ctx.strokeStyle = '#3b3b42';
+      ctx.lineWidth = 2;
       for (let i = 1; i < state.lanes; i++) {
         const x = roadLeft + i*state.laneWidth;
         ctx.setLineDash([18, 14]);
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
         ctx.setLineDash([]);
       }
-      ctx.strokeStyle = '#cfcfd6'; ctx.lineWidth = 4;
+
+      // shoulder lines
+      ctx.strokeStyle = '#cfcfd6';
+      ctx.lineWidth = 4;
       ctx.setLineDash([24, 16]);
       ctx.beginPath(); ctx.moveTo(roadLeft, 0); ctx.lineTo(roadLeft, h); ctx.stroke();
       ctx.beginPath(); ctx.moveTo(roadRight, 0); ctx.lineTo(roadRight, h); ctx.stroke();
       ctx.setLineDash([]);
+
+      // gravel patches
       for (const row of state.obstacles) {
         for (let l = 0; l < state.lanes; l++) {
           if (row.lanes.has(l)) {
@@ -293,6 +334,7 @@
             ctx.fillStyle = '#7a6d57';
             roundedRect(-wPatch/2, -hPatch/2, wPatch, hPatch, 8);
             ctx.fill();
+            // speckles
             for (let i=0;i<18;i++){
               ctx.fillStyle = i%2? '#6a5f4d' : '#8a7b63';
               const rx = (Math.random()-0.5)*wPatch*0.8;
@@ -303,6 +345,12 @@
           }
         }
       }
+    }
+
+    function laneCenter(l) {
+      const roadMargin = 40;
+      const roadLeft = (canvas.width / (window.devicePixelRatio || 1)) / 2 - (state.laneWidth * state.lanes)/2;
+      return roadLeft + l * state.laneWidth + state.laneWidth/2;
     }
 
     function roundedRect(x, y, w, h, r) {
@@ -318,11 +366,15 @@
     function drawPlayer() {
       const y = canvas.height - 120;
       const cx = laneCenter(state.playerLane);
+
       ctx.save();
+      // wobble when hit
       const wobbleX = state.wobbleAmp * Math.sin((performance.now()/100) * 2 * Math.PI);
       ctx.translate(cx + wobbleX, y);
+
       if (state.gameOver) {
         if (state.gravestoneT > 0) {
+          // quick OTB spin
           const t = state.gravestoneT;
           const a = (1.5 - t) * Math.PI;
           ctx.rotate(a);
@@ -333,25 +385,30 @@
       } else {
         drawBike(0, 0, false);
       }
+
       ctx.restore();
     }
 
     function drawBike(x, y, crashed) {
       ctx.save();
       ctx.translate(x, y);
+      // frame
       ctx.strokeStyle = crashed ? '#aa3333' : '#4cc9f0';
       ctx.lineWidth = 4;
       ctx.beginPath();
       ctx.moveTo(-20, 10); ctx.lineTo(0, -18); ctx.lineTo(22, 8); ctx.lineTo(-10, 8); ctx.closePath();
       ctx.stroke();
+      // wheels
       ctx.fillStyle = '#101014'; ctx.beginPath(); ctx.arc(-28, 18, 12, 0, Math.PI*2); ctx.fill();
       ctx.beginPath(); ctx.arc(28, 18, 12, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#f1d1b5';
+      // rider
+      ctx.fillStyle = '#f1d1b5'; // head
       ctx.beginPath(); ctx.arc(0, -30, 8, 0, Math.PI*2); ctx.fill();
-      ctx.fillStyle = '#ff69b4';
+      ctx.fillStyle = '#ff69b4'; // jersey
       ctx.fillRect(-10, -26, 20, 18);
-      ctx.fillStyle = '#111';
+      ctx.fillStyle = '#111'; // shorts
       ctx.fillRect(-8, -8, 16, 14);
+      // bars
       ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3;
       ctx.beginPath(); ctx.moveTo(14, -6); ctx.lineTo(26, -6); ctx.stroke();
       ctx.restore();
@@ -375,9 +432,11 @@
     function drawUI() {
       const w = canvas.width / (window.devicePixelRatio || 1);
       const h = canvas.height / (window.devicePixelRatio || 1);
+      // top progress bar (to 180s)
       const pct = Math.min(1, state.elapsed / 180);
       ctx.fillStyle = '#2a71ff';
       ctx.fillRect(0, 0, w*pct, 4);
+
       if (state.gameOver && state.gravestoneT <= 0) {
         ctx.save();
         ctx.fillStyle = 'rgba(0,0,0,0.5)';
@@ -387,25 +446,33 @@
         ctx.font = 'bold 28px system-ui, sans-serif';
         ctx.fillText('Over the Bars!', w/2, h/2 - 30);
         ctx.font = '16px system-ui, sans-serif';
-        ctx.fillText('Survived ' + Math.floor(state.elapsed) + 's  •  Max lanes ' + state.lanes, w/2, h/2 + 4);
+        ctx.fillText(`Survived ${Math.floor(state.elapsed)}s  •  Max lanes ${state.lanes}`, w/2, h/2 + 4);
         ctx.fillText('Tap Start to try again', w/2, h/2 + 32);
         ctx.restore();
+
+        // show HTML overlay to restart on tap of Start
+        overlay.classList.remove('hidden');
+        startBtn.textContent = 'Restart Ride';
       }
     }
 
+    // --- Main loop ---
     let last = performance.now();
     function frame(now) {
       const dt = Math.min(0.033, (now - last) / 1000);
       last = now;
+
       if (state.running && !state.gameOver) update(dt);
       if (state.gameOver && state.gravestoneT > 0) {
         state.gravestoneT -= dt;
         if (state.gravestoneT <= 0) state.gravestoneT = 0;
       }
+
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       drawRoad();
       drawPlayer();
       drawUI();
+
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
